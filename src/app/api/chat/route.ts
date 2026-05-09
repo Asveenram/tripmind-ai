@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
+const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+
 // Optional: if you don't have an API key locally, this won't crash at build time
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "dummy",
+  apiKey: apiKey || "dummy",
   baseURL: "https://api.groq.com/openai/v1",
 });
 
@@ -23,8 +25,12 @@ Do not say anything else after READY_TO_GENERATE.`;
 
 export async function POST(req: Request) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ message: "OpenAI API key is missing. Please configure it in .env.local." }, { status: 500 });
+    if (!apiKey) {
+      console.error("Missing API Key: Neither GROQ_API_KEY nor OPENAI_API_KEY is configured.");
+      return NextResponse.json(
+        { message: "API configuration error. Please ensure GROQ_API_KEY is set in your Vercel deployment." }, 
+        { status: 500 }
+      );
     }
 
     const body = await req.json();
@@ -44,7 +50,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: aiMessage });
   } catch (error: any) {
-    console.error("OpenAI Error:", error);
-    return NextResponse.json({ message: "An error occurred during chat." }, { status: 500 });
+    console.error("Groq API Error in /api/chat:", error);
+    
+    // Provide a more meaningful error message instead of a generic one
+    const errorDetail = error?.error?.message || error.message || "Unknown error";
+    
+    return NextResponse.json({ 
+      message: "Failed to communicate with AI service.",
+      error: errorDetail
+    }, { status: 500 });
   }
 }

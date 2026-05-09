@@ -65,12 +65,12 @@ export async function GET() {
 
     if (error) {
       console.error("Supabase select error:", error);
-      return NextResponse.json({ message: "Error fetching leads" }, { status: 500 });
+      return NextResponse.json({ message: "Error fetching leads", error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ data });
   } catch (error: any) {
     console.error("Server error:", error);
-    return NextResponse.json({ message: "An error occurred" }, { status: 500 });
+    return NextResponse.json({ message: "An error occurred", error: error.message }, { status: 500 });
   }
 }

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
+const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "dummy",
+  apiKey: apiKey || "dummy",
   baseURL: "https://api.groq.com/openai/v1",
 });
 
@@ -49,8 +51,12 @@ CRITICAL RULES:
 
 export async function POST(req: Request) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ message: "OpenAI API key is missing." }, { status: 500 });
+    if (!apiKey) {
+      console.error("Missing API Key: Neither GROQ_API_KEY nor OPENAI_API_KEY is configured.");
+      return NextResponse.json(
+        { message: "API configuration error. Please ensure GROQ_API_KEY is set in your Vercel deployment." }, 
+        { status: 500 }
+      );
     }
 
     const body = await req.json();
@@ -68,11 +74,28 @@ export async function POST(req: Request) {
     });
 
     const aiMessage = response.choices[0].message.content;
-    const itinerary = JSON.parse(aiMessage || "{}");
+    
+    if (!aiMessage) {
+      throw new Error("Received empty response from AI model.");
+    }
+
+    let itinerary;
+    try {
+      itinerary = JSON.parse(aiMessage);
+    } catch (parseError) {
+      console.error("JSON Parsing Error on AI output:", aiMessage);
+      throw new Error("AI returned malformed JSON that could not be parsed.");
+    }
 
     return NextResponse.json({ itinerary });
   } catch (error: any) {
-    console.error("OpenAI Error:", error);
-    return NextResponse.json({ message: "An error occurred during generation." }, { status: 500 });
+    console.error("Groq API Error in /api/generate:", error);
+    
+    const errorDetail = error?.error?.message || error.message || "Unknown error";
+    
+    return NextResponse.json({ 
+      message: "An error occurred during itinerary generation.",
+      error: errorDetail
+    }, { status: 500 });
   }
 }
